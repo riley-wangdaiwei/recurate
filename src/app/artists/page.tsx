@@ -1,0 +1,5 @@
+import Link from "next/link";
+import { seedArtists } from "@/data/seed-artists";
+import ArtistCard from "@/components/artists/ArtistCard";
+import styles from "@/app/site.module.css";
+export default function ArtistsPage() { return <main className={styles.page}><div className={styles.routeTop}><span>RECURATE* / 06</span><span>ARTISTS / STORIES</span><Link href="/">BACK TO CANVAS -&gt;</Link></div><section className={styles.artistHeading}><span className={styles.mono}>CULTURAL CONTENT LAYER / DEMO</span><h1 className={styles.pageTitle}>ARTISTS<br /><em>STORIES.</em></h1><p>Meet people who make new doors for your taste. Their work starts with a shared signal and goes somewhere unexpected.</p></section><div className={styles.artistGrid}>{seedArtists.map((artist) => <ArtistCard key={artist.id} artist={artist} />)}</div></main>; }
