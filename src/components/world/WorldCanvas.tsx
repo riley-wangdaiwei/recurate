@@ -3,7 +3,7 @@
 import { DragEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { seedTags } from "@/data/seed-tags";
-import { moveTag } from "@/features/world/service";
+import { mergeWorld, moveTag } from "@/features/world/service";
 import { TasteTag, TasteProfile } from "@/features/taste/types";
 import { World, WorldFrame, WorldSticker } from "@/features/world/types";
 import { storage } from "@/lib/storage";
@@ -28,7 +28,9 @@ export default function WorldCanvas({ frames = [], onMoveFrame, onResizeFrame, o
   async function persistTags(nextTags: TasteTag[]) { setTags(nextTags); const nextProfile = { ...(profile ?? createTasteProfile()), tags: nextTags, updatedAt: new Date().toISOString() }; setProfile(nextProfile); await storage.saveTaste(nextProfile); }
   async function onMove(id: string, x: number, y: number) { await persistTags(moveTag(tags, id, x, y)); }
   async function onDelete(id: string) { await persistTags(tags.filter((tag) => tag.id !== id)); }
-  async function persistStickers(nextStickers: WorldSticker[]) { setStickers(nextStickers); const nextWorld = { ...(world ?? createWorld()), stickers: nextStickers, updatedAt: new Date().toISOString() }; setWorld(nextWorld); await storage.saveWorld(nextWorld); }
+  // BUG FIX 2026-10-02: read-modify-write so sticker saves never clobber the
+  // groups/frames that WorldWorkspace persists under the same storage key.
+  async function persistStickers(nextStickers: WorldSticker[]) { setStickers(nextStickers); const saved = await storage.getWorld(); const nextWorld = mergeWorld(saved ?? world, { stickers: nextStickers }); setWorld(nextWorld); await storage.saveWorld(nextWorld); }
   async function onMoveSticker(id: string, x: number, y: number) { await persistStickers(stickers.map((sticker) => sticker.id === id ? { ...sticker, x, y } : sticker)); }
   async function onDeleteSticker(id: string) { await persistStickers(stickers.filter((sticker) => sticker.id !== id)); }
   async function onDrop(event: DragEvent<HTMLDivElement>) { event.preventDefault(); const rect = canvasRef.current?.getBoundingClientRect(); if (!rect) return; const stickerData = event.dataTransfer.getData("text/recurate-sticker"); if (stickerData) { const sticker = JSON.parse(stickerData) as Pick<WorldSticker, "title" | "imageUrl">; await persistStickers([...stickers, { ...sticker, id: `sticker-${Date.now()}`, x: event.clientX - rect.left - 21, y: event.clientY - rect.top - 21, width: 42, height: 42 }]); return; } const label = event.dataTransfer.getData("text/recurate-tag"); if (!label || tags.some((tag) => tag.label === label)) return; const nextTag: TasteTag = { id: `${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`, label, source: "user", createdAt: new Date().toISOString(), x: event.clientX - rect.left - 50, y: event.clientY - rect.top - 20, groupIds: [], isOriginal: false }; await persistTags([...tags, nextTag]); }
